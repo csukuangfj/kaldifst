@@ -114,6 +114,37 @@ value
 
 .. autoattribute:: kaldifst.FloatWeight.value
 
+RandomAccessVectorFstReader
+---------------------------
+
+is_open
+^^^^^^^
+
+.. autoattribute:: kaldifst.RandomAccessVectorFstReader.is_open
+
+SequentialVectorFstReader
+-------------------------
+
+done
+^^^^
+
+.. autoattribute:: kaldifst.SequentialVectorFstReader.done
+
+is_open
+^^^^^^^
+
+.. autoattribute:: kaldifst.SequentialVectorFstReader.is_open
+
+key
+^^^
+
+.. autoattribute:: kaldifst.SequentialVectorFstReader.key
+
+value
+^^^^^
+
+.. autoattribute:: kaldifst.SequentialVectorFstReader.value
+
 StateIterator
 -------------
 
@@ -276,5 +307,18 @@ value
 ^^^^^
 
 .. autoattribute:: kaldifst.TropicalWeight.value
+
+VectorFstWriter
+---------------
+
+write
+^^^^^
+
+.. automethod:: kaldifst.VectorFstWriter.write
+
+is_open
+^^^^^^^
+
+.. autoattribute:: kaldifst.VectorFstWriter.is_open
 
 
