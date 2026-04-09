@@ -34,6 +34,26 @@ pybind11_add_module(_kaldifst
 )
 target_link_libraries(_kaldifst PRIVATE kaldifst_core fstscript)
 
+if(MSVC)
+  target_compile_options(
+    _kaldifst
+    PRIVATE
+      $<$<CONFIG:Release>:/GL->
+      $<$<CONFIG:Release>:/Od /Ob0>
+      $<$<CONFIG:RelWithDebInfo>:/GL->
+      $<$<CONFIG:RelWithDebInfo>:/Od /Ob0>
+      $<$<CONFIG:MinSizeRel>:/GL->
+      $<$<CONFIG:MinSizeRel>:/Od /Ob0>
+  )
+  target_link_options(
+    _kaldifst
+    PRIVATE
+      $<$<CONFIG:Release>:/LTCG:OFF>
+      $<$<CONFIG:RelWithDebInfo>:/LTCG:OFF>
+      $<$<CONFIG:MinSizeRel>:/LTCG:OFF>
+  )
+endif()
+
 if(APPLE)
   execute_process(
     COMMAND "${PYTHON_EXECUTABLE}" -c "from distutils.sysconfig import get_python_lib; print(get_python_lib())"
@@ -44,7 +64,7 @@ if(APPLE)
   if(PYTHON_SITE_PACKAGE_DIR STREQUAL "")
     message(WARNING "PYTHON_SITE_PACKAGE_DIR is empty!")
   else()
-    target_link_libraries(_kaldifst PRIVATE "-Wl,-rpath,${PYTHON_SITE_PACKAGE_DIR}")
+    target_link_libraries(_kaldifst PRIVATE "-Wl,-rpath,${PYTHON_SITE_PACKAGE_DIR}/kaldifst/lib")
   endif()
 endif()
 
@@ -52,6 +72,4 @@ if(NOT WIN32)
   target_link_libraries(_kaldifst PRIVATE "-Wl,-rpath,${kaldifst_rpath_origin}/kaldifst/lib")
 endif()
 
-install(TARGETS _kaldifst
-  DESTINATION ../
-)
+install(TARGETS _kaldifst DESTINATION lib)

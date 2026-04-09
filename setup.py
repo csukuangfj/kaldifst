@@ -20,6 +20,12 @@ def is_windows():
     return platform.system() == "Windows"
 
 
+def get_windows_build_args(make_args: str, system_make_args: str) -> str:
+    del make_args
+    del system_make_args
+    return "/m:1 /p:CL_MPCount=1 /p:UseMultiToolTask=false"
+
+
 def cmake_extension(name, *args, **kwargs) -> setuptools.Extension:
     kwargs["language"] = "c++"
     sources = []
@@ -50,8 +56,8 @@ class BuildExtension(build_ext):
         if make_args == "" and system_make_args == "":
             print("For fast compilation, run:")
             print('export KALDIFST_MAKE_ARGS="-j"; python setup.py install')
-            make_args = "-j4"
-            print("Setting make_args to '-j4'")
+            make_args = "-j1" if is_windows() else "-j4"
+            print(f"Setting make_args to '{make_args}'")
 
         if "PYTHON_EXECUTABLE" not in cmake_args:
             print(f"Setting PYTHON_EXECUTABLE to {sys.executable}")
@@ -80,9 +86,16 @@ class BuildExtension(build_ext):
             return
 
         # for windows
+        make_args = "-j1"
+        system_make_args = ""
+        local_temp_dir = Path(self.build_temp).resolve() / "tmp"
+        os.makedirs(local_temp_dir, exist_ok=True)
+        os.environ["TMP"] = str(local_temp_dir)
+        os.environ["TEMP"] = str(local_temp_dir)
+        windows_build_args = get_windows_build_args(make_args, system_make_args)
         build_cmd = f"""
             cmake {cmake_args} -B {self.build_temp} -S {cur_dir}
-            cmake --build {self.build_temp} --target install --config Release -- -m
+            cmake --build {self.build_temp} --target install --config Release -- {windows_build_args}
         """
         print(f"build command is:\n{build_cmd}")
 
@@ -91,7 +104,7 @@ class BuildExtension(build_ext):
             raise Exception("Failed to build kaldifst")
 
         ret = os.system(
-            f"cmake --build {self.build_temp} --target install --config Release -- -m"
+            f"cmake --build {self.build_temp} --target install --config Release -- {windows_build_args}"
         )
         if ret != 0:
             raise Exception("Failed to build kaldifst")

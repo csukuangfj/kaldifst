@@ -15,8 +15,27 @@ set(srcs
   text-utils.cc
   )
 
-add_library(kaldifst_core ${srcs})
+add_library(kaldifst_core STATIC ${srcs})
+
+if(NOT WIN32)
+  set_target_properties(kaldifst_core
+    PROPERTIES
+      POSITION_INDEPENDENT_CODE ON
+      C_VISIBILITY_PRESET hidden
+      CXX_VISIBILITY_PRESET hidden
+  )
+endif()
+
 target_link_libraries(kaldifst_core PUBLIC fst)
+
+if(MSVC)
+  set_source_files_properties(
+    context-fst.cc
+    text-normalizer.cc
+    PROPERTIES
+      COMPILE_OPTIONS "/Od;/Ob0"
+  )
+endif()
 
 if(APPLE)
   execute_process(
@@ -54,14 +73,4 @@ if(KALDIFST_BUILD_TESTS)
   foreach(source IN LISTS test_srcs)
     kaldifst_add_test(${source})
   endforeach()
-endif()
-
-if(KALDIFST_BUILD_PYTHON AND WIN32)
-  install(TARGETS kaldifst_core DESTINATION ..)
-else()
-  install(TARGETS kaldifst_core DESTINATION lib)
-endif()
-
-if(WIN32 AND BUILD_SHARED_LIBS)
-  install(TARGETS kaldifst_core DESTINATION bin)
 endif()

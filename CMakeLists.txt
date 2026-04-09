@@ -17,7 +17,7 @@ cmake_minimum_required(VERSION 3.13 FATAL_ERROR)
 
 project(kaldifst CXX)
 
-set(KALDIFST_VERSION "1.7.17")
+set(KALDIFST_VERSION "1.8.0")
 
 # Disable warning about
 #
@@ -35,15 +35,9 @@ message(STATUS "CMAKE_BUILD_TYPE: ${CMAKE_BUILD_TYPE}")
 
 option(KALDIFST_BUILD_TESTS "Whether to build tests or not" OFF)
 option(KALDIFST_BUILD_PYTHON "Whether to build Python" ON)
-option(BUILD_SHARED_LIBS "Whether to build shared libraries" ON)
 
 message(STATUS "CMAKE_BUILD_TYPE: ${CMAKE_BUILD_TYPE}")
 message(STATUS "CMAKE_INSTALL_PREFIX: ${CMAKE_INSTALL_PREFIX}")
-message(STATUS "BUILD_SHARED_LIBS ${BUILD_SHARED_LIBS}")
-
-if(BUILD_SHARED_LIBS AND MSVC)
-  set(CMAKE_WINDOWS_EXPORT_ALL_SYMBOLS ON)
-endif()
 
 set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/lib")
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/lib")
@@ -87,6 +81,12 @@ if(WIN32)
   foreach(w IN LISTS disabled_warnings)
     string(APPEND CMAKE_CXX_FLAGS " ${w} ")
   endforeach()
+
+  add_compile_options(/bigobj)
+endif()
+
+if(WIN32)
+  add_definitions(-DNOMINMAX) # Otherwise, std::max() and std::min() won't work
 endif()
 
 message(STATUS "CMAKE_CXX_FLAGS: ${CMAKE_CXX_FLAGS}")
