@@ -204,15 +204,72 @@ std::string TextNormalizer::Normalize(const std::string &s,
     }
     fprintf(stderr, "[tn] input='%s' first_byte=%d rule_start=%d arcs_at_start=%d match=%d\n",
             s.c_str(), first_byte, rs, arc_count, found);
+
+    // DEBUG: dump text FST arcs
+    fprintf(stderr, "[tn] text FST: start=%d\n", text.Start());
+    {
+      auto st = text.Start();
+      int step = 0;
+      while (text.Final(st) == fst::StdArc::Weight::Zero()) {
+        fst::ArcIterator<fst::Fst<fst::StdArc>> aiter2(text, st);
+        if (aiter2.Done()) break;
+        const auto &arc = aiter2.Value();
+        fprintf(stderr, "[tn]   text step %d: state=%d ilabel=%d olabel=%d next=%d\n",
+                step, st, arc.ilabel, arc.olabel, arc.nextstate);
+        st = arc.nextstate;
+        ++step;
+        aiter2.Next();
+        if (!aiter2.Done()) {
+          fprintf(stderr, "[tn]   text: NOT LINEAR!\n");
+          break;
+        }
+      }
+      fprintf(stderr, "[tn]   text final state=%d is_final=%d\n", st,
+              text.Final(st) != fst::StdArc::Weight::Zero());
+    }
   }
 
   // Step 2: Compose the input text with the rule FST
   fst::StdVectorFst composed_fst;
   fst::Compose(text, *rule_, &composed_fst);
 
+  // DEBUG: check composed FST
+  fprintf(stderr, "[tn] composed: num_states=%d start=%d\n",
+          composed_fst.NumStates(), composed_fst.Start());
+
+  // Check if there's a path from start to a final state
+  {
+    auto start = composed_fst.Start();
+    bool has_any_arc = false;
+    int total_arcs = 0;
+    for (fst::StateIterator<fst::StdVectorFst> siter(composed_fst); !siter.Done(); siter.Next()) {
+      int ns = 0;
+      for (fst::ArcIterator<fst::StdVectorFst> aiter(composed_fst, siter.Value()); !aiter.Done(); aiter.Next()) {
+        ++ns;
+        has_any_arc = true;
+      }
+      if (siter.Value() == start) {
+        fprintf(stderr, "[tn] composed start state %d has %d arcs\n", start, ns);
+      }
+      total_arcs += ns;
+    }
+    fprintf(stderr, "[tn] composed total_arcs=%d has_any_arc=%d\n", total_arcs, has_any_arc);
+
+    // Check if any state is final
+    int final_count = 0;
+    for (fst::StateIterator<fst::StdVectorFst> siter(composed_fst); !siter.Done(); siter.Next()) {
+      if (composed_fst.Final(siter.Value()) != fst::StdArc::Weight::Zero()) {
+        ++final_count;
+      }
+    }
+    fprintf(stderr, "[tn] composed final_states=%d\n", final_count);
+  }
+
   // Step 3: Get the best path from the composed FST
   fst::StdVectorFst one_best;
   fst::ShortestPath(composed_fst, &one_best, 1);
+
+  fprintf(stderr, "[tn] one_best: num_states=%d\n", one_best.NumStates());
 
   return FstToString(one_best, remove_output_zero);
 }
