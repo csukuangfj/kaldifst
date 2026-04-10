@@ -5,6 +5,7 @@
 #include "kaldifst/csrc/text-normalizer.h"
 
 #include <algorithm>
+#include <cstdio>
 #include <memory>
 #include <string>
 #include <utility>
@@ -167,8 +168,19 @@ static std::string FstToString2(const fst::StdVectorFst &fst) {
 }
 
 TextNormalizer::TextNormalizer(const std::string &rule) {
-  rule_ = std::unique_ptr<fst::StdConstFst>(
-      CastOrConvertToConstFst(fst::ReadFstKaldiGeneric(rule)));
+  auto *raw = fst::ReadFstKaldiGeneric(rule);
+  fprintf(stderr, "[kaldifst] TextNormalizer ctor: rule='%s' raw=%p\n", rule.c_str(), raw);
+  if (raw) {
+    fprintf(stderr, "[kaldifst]   NumStates=%lld Start=%d\n",
+            (long long)raw->NumStates(), raw->Start());
+  }
+  rule_ = std::unique_ptr<fst::StdConstFst>(CastOrConvertToConstFst(raw));
+  if (rule_) {
+    fprintf(stderr, "[kaldifst]   const fst NumStates=%lld Start=%d\n",
+            (long long)rule_->NumStates(), rule_->Start());
+  } else {
+    fprintf(stderr, "[kaldifst]   const fst is NULL!\n");
+  }
 }
 
 TextNormalizer::TextNormalizer(std::istream &is) {
@@ -185,18 +197,32 @@ TextNormalizer::TextNormalizer(std::unique_ptr<fst::StdConstFst> rule)
 
 std::string TextNormalizer::Normalize(const std::string &s,
                                       bool remove_output_zero /*=true*/) const {
+  fprintf(stderr, "[kaldifst] Normalize input='%s' (len=%zu) rule_=%p\n",
+          s.c_str(), s.size(), rule_.get());
+  if (!rule_) {
+    fprintf(stderr, "[kaldifst]   rule_ is null, returning empty\n");
+    return "";
+  }
   // Step 1: Convert the input text into an FST
   fst::StdVectorFst text = StringToFst(s);
+  fprintf(stderr, "[kaldifst]   text FST: NumStates=%lld Start=%d\n",
+          (long long)text.NumStates(), text.Start());
 
   // Step 2: Compose the input text with the rule FST
   fst::StdVectorFst composed_fst;
   fst::Compose(text, *rule_, &composed_fst);
+  fprintf(stderr, "[kaldifst]   composed FST: NumStates=%lld Start=%d\n",
+          (long long)composed_fst.NumStates(), composed_fst.Start());
 
   // Step 3: Get the best path from the composed FST
   fst::StdVectorFst one_best;
   fst::ShortestPath(composed_fst, &one_best, 1);
+  fprintf(stderr, "[kaldifst]   one_best FST: NumStates=%lld Start=%d\n",
+          (long long)one_best.NumStates(), one_best.Start());
 
-  return FstToString(one_best, remove_output_zero);
+  std::string result = FstToString(one_best, remove_output_zero);
+  fprintf(stderr, "[kaldifst]   result='%s' (len=%zu)\n", result.c_str(), result.size());
+  return result;
 }
 
 std::string TextNormalizer::Normalize(
