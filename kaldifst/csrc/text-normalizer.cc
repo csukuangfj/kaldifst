@@ -170,6 +170,41 @@ static std::string FstToString2(const fst::StdVectorFst &fst) {
 TextNormalizer::TextNormalizer(const std::string &rule) {
   rule_ = std::unique_ptr<fst::StdConstFst>(
       CastOrConvertToConstFst(fst::ReadFstKaldiGeneric(rule)));
+
+  // DEBUG: dump rule FST structure
+  fprintf(stderr, "[tn-ctor] rule='%s' num_states=%d start=%d\n",
+          rule.c_str(), rule_->NumStates(), rule_->Start());
+
+  // Count arcs from start state and dump first 10
+  {
+    int arc_count = 0;
+    for (fst::ArcIterator<fst::StdConstFst> aiter(*rule_, rule_->Start());
+         !aiter.Done(); aiter.Next()) {
+      if (arc_count < 10) {
+        const auto &arc = aiter.Value();
+        fprintf(stderr, "[tn-ctor]   start arc %d: ilabel=%d olabel=%d weight=%.6f next=%d\n",
+                arc_count, arc.ilabel, arc.olabel, arc.weight.Value(), arc.nextstate);
+      }
+      ++arc_count;
+    }
+    fprintf(stderr, "[tn-ctor]   total arcs from start: %d\n", arc_count);
+  }
+
+  // Count final states
+  {
+    int final_count = 0;
+    for (fst::StateIterator<fst::StdConstFst> siter(*rule_); !siter.Done(); siter.Next()) {
+      auto w = rule_->Final(siter.Value());
+      if (w != fst::StdArc::Weight::Zero()) {
+        if (final_count < 5) {
+          fprintf(stderr, "[tn-ctor]   final state %d: weight=%.6f\n",
+                  siter.Value(), w.Value());
+        }
+        ++final_count;
+      }
+    }
+    fprintf(stderr, "[tn-ctor]   total final states: %d\n", final_count);
+  }
 }
 
 TextNormalizer::TextNormalizer(std::istream &is) {
