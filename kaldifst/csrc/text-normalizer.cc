@@ -194,15 +194,38 @@ TextNormalizer::TextNormalizer(std::unique_ptr<fst::StdConstFst> rule)
 std::string TextNormalizer::Normalize(const std::string &s,
                                       bool remove_output_zero /*=true*/) const {
   fprintf(stderr, "[kaldifst] Normalize input='%s' (len=%zu) rule_=%p\n",
-          s.c_str(), s.size(), rule_.get());
+          s.c_str(), s.size(), (void*)rule_.get());
   if (!rule_) {
     fprintf(stderr, "[kaldifst]   rule_ is null, returning empty\n");
     return "";
   }
+
+  // Print first 5 arcs of the rule FST at the start state
+  {
+    auto rs = rule_->Start();
+    fprintf(stderr, "[kaldifst]   rule start state=%d\n", rs);
+    fst::ArcIterator<fst::StdConstFst> aiter(*rule_, rs);
+    int count = 0;
+    for (; !aiter.Done() && count < 10; aiter.Next(), ++count) {
+      const auto &arc = aiter.Value();
+      fprintf(stderr, "[kaldifst]     rule arc[%d]: ilabel=%d olabel=%d nextstate=%d\n",
+              count, arc.ilabel, arc.olabel, arc.nextstate);
+    }
+  }
+
   // Step 1: Convert the input text into an FST
   fst::StdVectorFst text = StringToFst(s);
   fprintf(stderr, "[kaldifst]   text FST: NumStates=%lld Start=%d\n",
           (long long)text.NumStates(), text.Start());
+  // Print text FST arcs
+  for (int64_t i = 0; i < std::min((long long)text.NumStates(), 5LL); ++i) {
+    fst::ArcIterator<fst::StdVectorFst> aiter(text, i);
+    for (int count = 0; !aiter.Done() && count < 3; aiter.Next(), ++count) {
+      const auto &arc = aiter.Value();
+      fprintf(stderr, "[kaldifst]     text arc[%lld]: ilabel=%d olabel=%d nextstate=%d\n",
+              (long long)i, arc.ilabel, arc.olabel, arc.nextstate);
+    }
+  }
 
   // Step 2: Compose the input text with the rule FST
   fst::StdVectorFst composed_fst;
