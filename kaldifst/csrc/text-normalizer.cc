@@ -169,11 +169,7 @@ static std::string FstToString2(const fst::StdVectorFst &fst) {
 
 TextNormalizer::TextNormalizer(const std::string &rule) {
   auto *raw = fst::ReadFstKaldiGeneric(rule);
-  fprintf(stderr, "[kaldifst] TextNormalizer ctor: rule='%s' raw=%p\n", rule.c_str(), raw);
-  if (raw) {
-    fprintf(stderr, "[kaldifst]   NumStates=%lld Start=%d\n",
-            (long long)raw->NumStates(), raw->Start());
-  }
+  fprintf(stderr, "[kaldifst] TextNormalizer ctor: rule='%s' raw=%p\n", rule.c_str(), (void*)raw);
   rule_ = std::unique_ptr<fst::StdConstFst>(CastOrConvertToConstFst(raw));
   if (rule_) {
     fprintf(stderr, "[kaldifst]   const fst NumStates=%lld Start=%d\n",
