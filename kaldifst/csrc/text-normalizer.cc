@@ -168,8 +168,10 @@ static std::string FstToString2(const fst::StdVectorFst &fst) {
 }
 
 TextNormalizer::TextNormalizer(const std::string &rule) {
+  auto *raw_fst = fst::ReadFstKaldiGeneric(rule);
+  fprintf(stderr, "[tn-ctor] raw FST type='%s'\n", raw_fst->Type().c_str());
   rule_ = std::unique_ptr<fst::StdConstFst>(
-      CastOrConvertToConstFst(fst::ReadFstKaldiGeneric(rule)));
+      CastOrConvertToConstFst(raw_fst));
 
   // DEBUG: dump rule FST structure
   fprintf(stderr, "[tn-ctor] rule='%s' num_states=%d start=%d\n",
@@ -190,17 +192,23 @@ TextNormalizer::TextNormalizer(const std::string &rule) {
     fprintf(stderr, "[tn-ctor]   total arcs from start: %d\n", arc_count);
   }
 
-  // Count final states
+  // Count final states and dump weights for first 10 states
   {
     int final_count = 0;
     for (fst::StateIterator<fst::StdConstFst> siter(*rule_); !siter.Done(); siter.Next()) {
-      auto w = rule_->Final(siter.Value());
+      auto s = siter.Value();
+      auto w = rule_->Final(s);
       if (w != fst::StdArc::Weight::Zero()) {
         if (final_count < 5) {
           fprintf(stderr, "[tn-ctor]   final state %d: weight=%.6f\n",
-                  siter.Value(), w.Value());
+                  s, w.Value());
         }
         ++final_count;
+      }
+      // dump first 10 states regardless
+      if (s < 10) {
+        fprintf(stderr, "[tn-ctor]   state %d: final_weight=%.6f narcs=%zu\n",
+                s, w.Value(), rule_->NumArcs(s));
       }
     }
     fprintf(stderr, "[tn-ctor]   total final states: %d\n", final_count);
