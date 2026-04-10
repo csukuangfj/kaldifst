@@ -6,6 +6,7 @@
 
 #include <algorithm>
 #include <cstdio>
+#include <cstring>
 #include <memory>
 #include <string>
 #include <utility>
@@ -170,6 +171,27 @@ static std::string FstToString2(const fst::StdVectorFst &fst) {
 TextNormalizer::TextNormalizer(const std::string &rule) {
   auto *raw_fst = fst::ReadFstKaldiGeneric(rule);
   fprintf(stderr, "[tn-ctor] raw FST type='%s'\n", raw_fst->Type().c_str());
+
+  // DEBUG: dump raw float bytes of Final weights for first 10 states
+  // This helps detect platform-specific float representation issues
+  {
+    auto *vfst = dynamic_cast<fst::VectorFst<fst::StdArc>*>(raw_fst);
+    if (vfst) {
+      for (int s = 0; s < 10 && s < vfst->NumStates(); ++s) {
+        float val = vfst->Final(s).Value();
+        uint32_t bits;
+        std::memcpy(&bits, &val, sizeof(bits));
+        fprintf(stderr, "[tn-ctor]   vfst state %d: final=%.6f bits=0x%08X\n",
+                s, val, bits);
+      }
+      // Also print Zero() bits
+      float zero_val = fst::StdArc::Weight::Zero().Value();
+      uint32_t zero_bits;
+      std::memcpy(&zero_bits, &zero_val, sizeof(zero_bits));
+      fprintf(stderr, "[tn-ctor]   Zero(): %.6f bits=0x%08X\n", zero_val, zero_bits);
+    }
+  }
+
   rule_ = std::unique_ptr<fst::StdConstFst>(
       CastOrConvertToConstFst(raw_fst));
 
