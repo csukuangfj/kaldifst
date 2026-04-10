@@ -168,15 +168,8 @@ static std::string FstToString2(const fst::StdVectorFst &fst) {
 }
 
 TextNormalizer::TextNormalizer(const std::string &rule) {
-  auto *raw = fst::ReadFstKaldiGeneric(rule);
-  fprintf(stderr, "[kaldifst] TextNormalizer ctor: rule='%s' raw=%p\n", rule.c_str(), (void*)raw);
-  rule_ = std::unique_ptr<fst::StdConstFst>(CastOrConvertToConstFst(raw));
-  if (rule_) {
-    fprintf(stderr, "[kaldifst]   const fst NumStates=%lld Start=%d\n",
-            (long long)rule_->NumStates(), rule_->Start());
-  } else {
-    fprintf(stderr, "[kaldifst]   const fst is NULL!\n");
-  }
+  rule_ = std::unique_ptr<fst::StdConstFst>(
+      CastOrConvertToConstFst(fst::ReadFstKaldiGeneric(rule)));
 }
 
 TextNormalizer::TextNormalizer(std::istream &is) {
@@ -193,55 +186,35 @@ TextNormalizer::TextNormalizer(std::unique_ptr<fst::StdConstFst> rule)
 
 std::string TextNormalizer::Normalize(const std::string &s,
                                       bool remove_output_zero /*=true*/) const {
-  fprintf(stderr, "[kaldifst] Normalize input='%s' (len=%zu) rule_=%p\n",
-          s.c_str(), s.size(), (void*)rule_.get());
-  if (!rule_) {
-    fprintf(stderr, "[kaldifst]   rule_ is null, returning empty\n");
-    return "";
-  }
-
-  // Print first 5 arcs of the rule FST at the start state
-  {
-    auto rs = rule_->Start();
-    fprintf(stderr, "[kaldifst]   rule start state=%d\n", rs);
-    fst::ArcIterator<fst::StdConstFst> aiter(*rule_, rs);
-    int count = 0;
-    for (; !aiter.Done() && count < 10; aiter.Next(), ++count) {
-      const auto &arc = aiter.Value();
-      fprintf(stderr, "[kaldifst]     rule arc[%d]: ilabel=%d olabel=%d nextstate=%d\n",
-              count, arc.ilabel, arc.olabel, arc.nextstate);
-    }
-  }
-
   // Step 1: Convert the input text into an FST
   fst::StdVectorFst text = StringToFst(s);
-  fprintf(stderr, "[kaldifst]   text FST: NumStates=%lld Start=%d\n",
-          (long long)text.NumStates(), text.Start());
-  // Print text FST arcs
-  for (int64_t i = 0; i < std::min((long long)text.NumStates(), 5LL); ++i) {
-    fst::ArcIterator<fst::StdVectorFst> aiter(text, i);
-    for (int count = 0; !aiter.Done() && count < 3; aiter.Next(), ++count) {
-      const auto &arc = aiter.Value();
-      fprintf(stderr, "[kaldifst]     text arc[%lld]: ilabel=%d olabel=%d nextstate=%d\n",
-              (long long)i, arc.ilabel, arc.olabel, arc.nextstate);
+
+  // DEBUG: check if rule FST has arc matching first input byte
+  if (!s.empty()) {
+    uint8_t first_byte = static_cast<uint8_t>(s[0]);
+    auto rs = rule_->Start();
+    bool found = false;
+    int arc_count = 0;
+    fst::ArcIterator<fst::StdConstFst> aiter(*rule_, rs);
+    for (; !aiter.Done(); aiter.Next()) {
+      ++arc_count;
+      if (aiter.Value().ilabel == first_byte) {
+        found = true;
+      }
     }
+    fprintf(stderr, "[tn] input='%s' first_byte=%d rule_start=%d arcs_at_start=%d match=%d\n",
+            s.c_str(), first_byte, rs, arc_count, found);
   }
 
   // Step 2: Compose the input text with the rule FST
   fst::StdVectorFst composed_fst;
   fst::Compose(text, *rule_, &composed_fst);
-  fprintf(stderr, "[kaldifst]   composed FST: NumStates=%lld Start=%d\n",
-          (long long)composed_fst.NumStates(), composed_fst.Start());
 
   // Step 3: Get the best path from the composed FST
   fst::StdVectorFst one_best;
   fst::ShortestPath(composed_fst, &one_best, 1);
-  fprintf(stderr, "[kaldifst]   one_best FST: NumStates=%lld Start=%d\n",
-          (long long)one_best.NumStates(), one_best.Start());
 
-  std::string result = FstToString(one_best, remove_output_zero);
-  fprintf(stderr, "[kaldifst]   result='%s' (len=%zu)\n", result.c_str(), result.size());
-  return result;
+  return FstToString(one_best, remove_output_zero);
 }
 
 std::string TextNormalizer::Normalize(
